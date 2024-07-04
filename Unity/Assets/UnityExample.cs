@@ -19,8 +19,26 @@ using UnityEngine.Events;
 public class UnityExample : MonoBehaviour
 {
     //Paste key/license strings here
-    private string key = "";
-    private string license = "";
+    private string key = "MIIBKjCB4wYHKoZIzj0CATCB1wIBATAsBgcqhkjOPQEBAiEA/////wAAAAEAAAAAAAAAAAAAAAD///////////////8wWwQg/////wAAAAEAAAAAAAAAAAAAAAD///////////////wEIFrGNdiqOpPns+u9VXaYhrxlHQawzFOw9jvOPD4n0mBLAxUAxJ02CIbnBJNqZnjhE50mt4GffpAEIQNrF9Hy4SxCR/i85uVjpEDydwN9gS3rM6D0oTlF2JjClgIhAP////8AAAAA//////////+85vqtpxeehPO5ysL8YyVRAgEBA0IABL/XVimyZ0LZEfBkG8gX4K/bvJXso49YFFHZ9J+C8o1nK7eBl1MouIlBEDWVtXcj6IJxVYDZOAGdk4QS1XSjgkI=";
+
+    private string license = "<License>" +
+                             "<Id>c5aa7ffc-790f-405c-b453-58388b7ca22a</Id>" +
+                             "<Type>Trial</Type>" +
+                             "<Quantity>10</Quantity>" +
+                             "<LicenseAttributes>" +
+                             "<Attribute name='Software'></Attribute>" +
+                             "</LicenseAttributes>" +
+                             "<ProductFeatures>" +
+                             "<Feature name='Sales'>True</Feature>" +
+                             "<Feature name='Billing'>False</Feature>" +
+                             "</ProductFeatures>" +
+                             "<Customer>" +
+                             "<Name>Jeon Minha</Name>" +
+                             "<Email>harororo721@khu.ac.k</Email>" +
+                             "</Customer>" +
+                             "<Expiration>Sun, 02 Jul 2034 04:00:00 GMT</Expiration>" +
+                             "<Signature>MEQCICVN/b1/ZRfGLctdYV+DL0OtSKAUOUyGUXY6ASrnhSOWAiBJLRsKkIKwUVWTIAPlevSN493G+pVpYqe7IjjiFn7B8w==</Signature>" +
+                             "</License>";
 
 
     /// <summary>
@@ -45,6 +63,9 @@ public class UnityExample : MonoBehaviour
     List<List<List<double>>> AllCollectionData = new List<List<List<double>>>();
     VerticalLayoutGroup verticalLayoutGroup;
 
+    private uint _totalSensorCount = 0;
+    private List<ChannelTypes> channelTypesList = new List<ChannelTypes>();
+    
     // Use this for initialization
     void Start()
     {
@@ -215,8 +236,13 @@ public class UnityExample : MonoBehaviour
         foreach (var component in RFPipeline.TrignoRfManager.Components)
         {
             bool success = RFPipeline.TrignoRfManager.SelectComponentAsync(component).Result;
-            if(success){
+            if (success)
+            {
                 text = component.FriendlyName + " selected!";
+                foreach (var channel in component.TrignoChannels)
+                {
+                    channelTypesList.Add(channel.Type);
+                }
             }
             else{
                 text = "Could not select sensor!!";
@@ -289,23 +315,31 @@ public class UnityExample : MonoBehaviour
         //Channel based list of data for this frame interval
         List<List<double>> data = new List<List<double>>();
 
-        for (int k = 0; k < e.Data.Count(); k++)
-        {
-            // Loops through each connected sensor
-            for (int i = 0; i < e.Data[k].SensorData.Count(); i++)
-            {
-                // Loops through each channel for a sensor
-                for (int j = 0; j < e.Data[k].SensorData[i].ChannelData.Count(); j++)
-                {
-                    data.Add(e.Data[k].SensorData[i].ChannelData[j].Data);
-                }
-            }
-
-        }
+        // Debug.Log("Data to be saved: " + e.Data.Count());
+        //
+        // for (int k = 0; k < e.Data.Count(); k++)
+        // {
+        //     Debug.Log($"[DEBUG] {k} Data +------------------------");
+        //     // Loops through each connected sensor
+        //     Debug.Log($"[DEBUG] Sensor 갯수 {e.Data[k].SensorData.Count()}");
+        //     //Debug.Log($"[DEBUG] Sensor 갯수 {e.Data[k].SensorData.Count()}");
+        //     _totalSensorCount = (uint)e.Data[k].SensorData.Count();
+        //     
+        //     for (int i = 0; i < e.Data[k].SensorData.Count(); i++)
+        //     {
+        //         Debug.Log($"[DEBUG] {i} Sensor");
+        //         // Loops through each channel for a sensor
+        //         for (int j = 0; j < e.Data[k].SensorData[i].ChannelData.Count(); j++)
+        //         {
+        //             data.Add(e.Data[k].SensorData[i].ChannelData[j].Data);
+        //             string DebugLine = string.Join(",", e.Data[k].SensorData[i].ChannelData[j].Data);
+        //             Debug.Log($"[DEBUG] {j}Channel Data: {DebugLine}");
+        //         }
+        //     }
+        // }
 
         //Add frame data to entire collection data buffer
         AllCollectionData.Add(data);
-
         text = AllCollectionData.Count.ToString();
     }
 
@@ -323,6 +357,7 @@ public class UnityExample : MonoBehaviour
         int totalChannels = 0;
         for (int i = 0; i < comps.Count; i++)
         {
+            Debug.Log("[DEBUG] Check Trigno Channels: " + comps[i].TrignoChannels.Count);
             for (int j = 0; j < comps[i].TrignoChannels.Count; j++)
             {
                 if (Data.Count <= totalChannels)
@@ -340,6 +375,36 @@ public class UnityExample : MonoBehaviour
 
     public virtual async void CollectionComplete(object sender, DelsysAPI.Events.CollectionCompleteEvent e)
     {
+        Debug.Log("Data to be saved: " + AllCollectionData.Count);
+        
+        // Define the CSV file path with current date and time
+        string csvFilePath = $"./AllCollectionData_{DateTime.Now:yyyy-MM-dd_HH-mm-ss}.csv";
+
+        using (StreamWriter
+               writer = new StreamWriter(csvFilePath, true)) // true to append data to the file if it exists
+        {
+            for (int i = 0; i < AllCollectionData.Count; i++)
+            {
+                writer.WriteLine($"Frame {i}");
+                var frameData = AllCollectionData[i];
+                for (int k = 0; k < _totalSensorCount; k++)
+                {
+                    writer.WriteLine($"Sensor {k}");
+                    for (int j = 0; j < frameData.Count; j++)
+                    {
+                        int num = (k * frameData.Count) + j;
+                        var channelData = frameData[num];
+                        string line = string.Join(",", channelData);
+                        line = $"Channel {channelTypesList[j]}" + "," + line;
+                        writer.WriteLine(line);
+                    }
+                }
+
+                // Optionally, add an empty line to separate data from different frames
+                writer.WriteLine();
+            }
+        }
+
         text = "CollectionComplete event triggered!";
         await RFPipeline.DisarmPipeline();
     }
