@@ -21,26 +21,8 @@ using Debug = UnityEngine.Debug;
 public class UnityExample : MonoBehaviour
 {
     //Paste key/license strings here
-    private string key = "MIIBKjCB4wYHKoZIzj0CATCB1wIBATAsBgcqhkjOPQEBAiEA/////wAAAAEAAAAAAAAAAAAAAAD///////////////8wWwQg/////wAAAAEAAAAAAAAAAAAAAAD///////////////wEIFrGNdiqOpPns+u9VXaYhrxlHQawzFOw9jvOPD4n0mBLAxUAxJ02CIbnBJNqZnjhE50mt4GffpAEIQNrF9Hy4SxCR/i85uVjpEDydwN9gS3rM6D0oTlF2JjClgIhAP////8AAAAA//////////+85vqtpxeehPO5ysL8YyVRAgEBA0IABL/XVimyZ0LZEfBkG8gX4K/bvJXso49YFFHZ9J+C8o1nK7eBl1MouIlBEDWVtXcj6IJxVYDZOAGdk4QS1XSjgkI=";
-
-    private string license = "<License>" +
-                             "<Id>c5aa7ffc-790f-405c-b453-58388b7ca22a</Id>" +
-                             "<Type>Trial</Type>" +
-                             "<Quantity>10</Quantity>" +
-                             "<LicenseAttributes>" +
-                             "<Attribute name='Software'></Attribute>" +
-                             "</LicenseAttributes>" +
-                             "<ProductFeatures>" +
-                             "<Feature name='Sales'>True</Feature>" +
-                             "<Feature name='Billing'>False</Feature>" +
-                             "</ProductFeatures>" +
-                             "<Customer>" +
-                             "<Name>Jeon Minha</Name>" +
-                             "<Email>harororo721@khu.ac.k</Email>" +
-                             "</Customer>" +
-                             "<Expiration>Sun, 02 Jul 2034 04:00:00 GMT</Expiration>" +
-                             "<Signature>MEQCICVN/b1/ZRfGLctdYV+DL0OtSKAUOUyGUXY6ASrnhSOWAiBJLRsKkIKwUVWTIAPlevSN493G+pVpYqe7IjjiFn7B8w==</Signature>" +
-                             "</License>";
+    private string key = "";
+    private string license = "";
 
 
     /// <summary>
