@@ -9,12 +9,14 @@ using DelsysAPI.Transforms;
 using DelsysAPI.Utils;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.Events;
+using Debug = UnityEngine.Debug;
 
 public class UnityExample : MonoBehaviour
 {
@@ -65,6 +67,10 @@ public class UnityExample : MonoBehaviour
 
     private uint _totalSensorCount = 0;
     private List<ChannelTypes> channelTypesList = new List<ChannelTypes>();
+    private List<double> frameTimeStamps = new List<double>();
+    private DateTime _lastEventTime = DateTime.MinValue;
+    private Stopwatch watch = new Stopwatch();
+
     
     // Use this for initialization
     void Start()
@@ -207,6 +213,9 @@ public class UnityExample : MonoBehaviour
             text = "Starting data streaming....";
             await RFPipeline.Start(); 
             stop = true; 
+            
+            frameTimeStamps.Clear();
+            watch.Start();
         }
         else{
             Debug.Log("Configuration failed. Cannot start streaming!!");  
@@ -217,6 +226,7 @@ public class UnityExample : MonoBehaviour
 
     public virtual async void clk_Stop()
     {
+        watch.Stop();
         await RFPipeline.Stop();
     }
 
@@ -312,36 +322,47 @@ public class UnityExample : MonoBehaviour
     #region Collection Callbacks -- Data Ready, Colleciton Started, and Collection Complete
     public virtual void CollectionDataReady(object sender, ComponentDataReadyEventArgs e)
     {
+        // Update Time
+        if (_lastEventTime != DateTime.MinValue)
+        {
+            TimeSpan elapsedTime = DateTime.Now - _lastEventTime;
+            Debug.Log($"Time elapsed since last CollectionDataReady event: {elapsedTime.TotalMilliseconds} ms");
+        }
+        _lastEventTime = DateTime.Now;
+        frameTimeStamps.Add(watch.ElapsedMilliseconds);
+        
         //Channel based list of data for this frame interval
         List<List<double>> data = new List<List<double>>();
 
-        // Debug.Log("Data to be saved: " + e.Data.Count());
-        //
-        // for (int k = 0; k < e.Data.Count(); k++)
-        // {
-        //     Debug.Log($"[DEBUG] {k} Data +------------------------");
-        //     // Loops through each connected sensor
-        //     Debug.Log($"[DEBUG] Sensor 갯수 {e.Data[k].SensorData.Count()}");
-        //     //Debug.Log($"[DEBUG] Sensor 갯수 {e.Data[k].SensorData.Count()}");
-        //     _totalSensorCount = (uint)e.Data[k].SensorData.Count();
-        //     
-        //     for (int i = 0; i < e.Data[k].SensorData.Count(); i++)
-        //     {
-        //         Debug.Log($"[DEBUG] {i} Sensor");
-        //         // Loops through each channel for a sensor
-        //         for (int j = 0; j < e.Data[k].SensorData[i].ChannelData.Count(); j++)
-        //         {
-        //             data.Add(e.Data[k].SensorData[i].ChannelData[j].Data);
-        //             string DebugLine = string.Join(",", e.Data[k].SensorData[i].ChannelData[j].Data);
-        //             Debug.Log($"[DEBUG] {j}Channel Data: {DebugLine}");
-        //         }
-        //     }
-        // }
+        //Debug.Log("Data to be saved: " + e.Data.Count());
+        
+        for (int k = 0; k < e.Data.Count(); k++)
+        {
+            //Debug.Log($"[DEBUG] {k} Data +------------------------");
+            // Loops through each connected sensor
+            //Debug.Log($"[DEBUG] Sensor 갯수 {e.Data[k].SensorData.Count()}");
+            //Debug.Log($"[DEBUG] Sensor 갯수 {e.Data[k].SensorData.Count()}");
+            _totalSensorCount = (uint)e.Data[k].SensorData.Count();
+            
+            for (int i = 0; i < e.Data[k].SensorData.Count(); i++)
+            {
+                //Debug.Log($"[DEBUG] {i} Sensor");
+                // Loops through each channel for a sensor
+                for (int j = 0; j < e.Data[k].SensorData[i].ChannelData.Count(); j++)
+                {
+                    data.Add(e.Data[k].SensorData[i].ChannelData[j].Data);
+                    string DebugLine = string.Join(",", e.Data[k].SensorData[i].ChannelData[j].Data);
+                    //Debug.Log($"[DEBUG] {j}Channel Data: {DebugLine}");
+                }
+            }
+        }
 
         //Add frame data to entire collection data buffer
         AllCollectionData.Add(data);
         text = AllCollectionData.Count.ToString();
     }
+    
+    
 
     public virtual void CollectionStarted(object sender, DelsysAPI.Events.CollectionStartedEvent e)
     {
@@ -383,22 +404,66 @@ public class UnityExample : MonoBehaviour
         using (StreamWriter
                writer = new StreamWriter(csvFilePath, true)) // true to append data to the file if it exists
         {
-            for (int i = 0; i < AllCollectionData.Count; i++)
+            for (int i = 0; i < AllCollectionData.Count - 1; i++)
             {
-                writer.WriteLine($"Frame {i}");
+                writer.WriteLine($"#Frame{i} #Time(ms) {frameTimeStamps[i]}");
                 var frameData = AllCollectionData[i];
-                for (int k = 0; k < _totalSensorCount; k++)
+
+                switch (_totalSensorCount)
                 {
-                    writer.WriteLine($"Sensor {k}");
-                    for (int j = 0; j < frameData.Count; j++)
-                    {
-                        int num = (k * frameData.Count) + j;
-                        var channelData = frameData[num];
-                        string line = string.Join(",", channelData);
-                        line = $"Channel {channelTypesList[j]}" + "," + line;
-                        writer.WriteLine(line);
-                    }
+                    case 1:
+                        for (int sensorIdx = 0; sensorIdx < _totalSensorCount; sensorIdx++)
+                        {
+                            writer.WriteLine($"Sensor {sensorIdx}");
+                            for (int dataIdx = 0; dataIdx < 4; dataIdx++)
+                            {
+                                int firstIdx = sensorIdx * 8 + dataIdx;
+                                int secondIdx = sensorIdx * 8 + (dataIdx + 4);
+
+                                Debug.Log($"[DEBUG] firstIdx: {firstIdx}, secondIdx: {secondIdx}");
+
+                                string firstline = string.Join(",", frameData[firstIdx]);
+                                string secondline = string.Join(",", frameData[secondIdx]);
+
+                                var line = $"Channel {channelTypesList[dataIdx % channelTypesList.Count]}" + "," +
+                                           firstline +
+                                           "," + secondline;
+                                writer.WriteLine(line);
+                            }
+                        }
+                        break;
+
+                    case 2:
+                        writer.WriteLine("Sensor 0");
+                        for (int dataIdx = 0; dataIdx < 4; dataIdx++)
+                        {
+                            int firstIdx = dataIdx;
+                            int secondIdx = dataIdx + 8;
+                            //Debug.Log($"[DEBUG] firstIdx: {firstIdx}, secondIdx: {secondIdx}");
+                            string firstline = string.Join(",", frameData[firstIdx]);
+                            string secondline = string.Join(",", frameData[secondIdx]);
+                            var line = $"Channel {channelTypesList[dataIdx % channelTypesList.Count]}" + "," +
+                                       firstline +
+                                       "," + secondline;
+                            writer.WriteLine(line);
+                        }
+                        
+                        writer.WriteLine($"Sensor 1");
+                        for (int dataIdx = 4; dataIdx < 8; dataIdx++)
+                        {
+                            int firstIdx = dataIdx;
+                            int secondIdx = dataIdx + 8;
+                            //Debug.Log($"[DEBUG] firstIdx: {firstIdx}, secondIdx: {secondIdx}");
+                            string firstline = string.Join(",", frameData[firstIdx]);
+                            string secondline = string.Join(",", frameData[secondIdx]);
+                            var line = $"Channel {channelTypesList[dataIdx % channelTypesList.Count]}" + "," +
+                                       firstline +
+                                       "," + secondline;
+                            writer.WriteLine(line);
+                        }
+                        break;
                 }
+
 
                 // Optionally, add an empty line to separate data from different frames
                 writer.WriteLine();
